@@ -60,12 +60,13 @@
     <div id="moveCounter">Moves: 0</div>
 
     <script>
+        let squadCar;
+        let crook;
         let gameOver = false;
-        let arrowsVisible = false;
-        const gridSize = 50;
-        let squadCar, crook;
-        let gameInterval;
         let moveCount = 0;
+        let gridSize = 50;
+        let arrowsVisible = false;
+        let firstMove = true;
 
         function initGrid() {
             const grid = document.getElementById('grid');
@@ -155,37 +156,39 @@
         document.addEventListener('keydown', handleKeyPress);
 
         function handleKeyPress(event) {
-            // Start game on first key press if not already started
-            if (moveCount === 0) {
-                startSimulation();
-            }
+            if (gameOver) return;
 
+            console.log('Key pressed:', event.key); // Debug logging
+
+            // Handle crook movement
+            let moved = false;
             switch(event.key) {
-                case 'ArrowUp':
-                    crook.y = (crook.y - 1 + gridSize) % gridSize;
+                case 'ArrowRight':
+                    crook.x = (crook.x + 1) % gridSize;
+                    moved = true;
                     break;
                 case 'ArrowDown':
                     crook.y = (crook.y + 1) % gridSize;
+                    moved = true;
                     break;
                 case 'ArrowLeft':
                     crook.x = (crook.x - 1 + gridSize) % gridSize;
+                    moved = true;
                     break;
-                case 'ArrowRight':
-                    crook.x = (crook.x + 1) % gridSize;
+                case 'ArrowUp':
+                    crook.y = (crook.y - 1 + gridSize) % gridSize;
+                    moved = true;
                     break;
-                default:
-                    return; // Ignore other keys
             }
-            moveCount++;
-            updateMoveCounter();
-            updateGrid();
-            moveSquadCar();
-            updateGrid();
-            
-            if (squadCar.x === crook.x && squadCar.y === crook.y) {
-                alert(`Game Over! The squad car caught the crook in ${moveCount} moves!`);
-                moveCount = 0;
-                startSimulation();
+
+            if (moved) {
+                console.log('Crook moved to:', crook.x, crook.y); // Debug logging
+                if (firstMove) {
+                    firstMove = false;
+                    arrowsVisible = true;
+                }
+                updateGrid();
+                moveSquadCar();
             }
         }
 
@@ -291,15 +294,43 @@
             gameOver = false;
             moveCount = 0;
             arrowsVisible = false;
+            firstMove = true;
 
-            // Reset squad car to starting position
-            squadCar.x = 0;
-            squadCar.y = 0;
-            squadCar.direction = 0;
+            // Place squad car randomly
+            squadCar.x = Math.floor(Math.random() * gridSize);
+            squadCar.y = Math.floor(Math.random() * gridSize);
+            squadCar.direction = Math.floor(Math.random() * 4);
+            console.log('Squad car placed at:', squadCar.x, squadCar.y);
 
-            // Reset crook to center
-            crook.x = Math.floor(gridSize / 2);
-            crook.y = Math.floor(gridSize / 2);
+            // Place crook at least 15 squares away
+            let attempts = 0;
+            do {
+                // Generate new random positions
+                crook.x = Math.floor(Math.random() * gridSize);
+                crook.y = Math.floor(Math.random() * gridSize);
+                
+                // Calculate minimum distance considering grid wrapping
+                const dx = Math.min(
+                    Math.abs(crook.x - squadCar.x),
+                    Math.abs(crook.x - squadCar.x + gridSize),
+                    Math.abs(crook.x - squadCar.x - gridSize)
+                );
+                
+                const dy = Math.min(
+                    Math.abs(crook.y - squadCar.y),
+                    Math.abs(crook.y - squadCar.y + gridSize),
+                    Math.abs(crook.y - squadCar.y - gridSize)
+                );
+                
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                console.log('Attempt', attempts, 'Crook at:', crook.x, crook.y, 'Distance:', distance);
+                
+                attempts++;
+                if (distance >= 15 || attempts > 100) {
+                    console.log('Final positions - Squad car:', squadCar.x, squadCar.y, 'Crook:', crook.x, crook.y);
+                    break;
+                }
+            } while (true);
 
             // Update the display
             updateGrid();
@@ -336,7 +367,82 @@
             return false;
         }
 
-        window.onload = initGrid;
+        // Initialize game objects and grid
+        function initGame() {
+            // Create game objects with random positions
+            squadCar = {
+                x: Math.floor(Math.random() * gridSize),
+                y: Math.floor(Math.random() * gridSize),
+                direction: Math.floor(Math.random() * 4)
+            };
+
+            // Place crook at least 15 squares away
+            let attempts = 0;
+            do {
+                crook = {
+                    x: Math.floor(Math.random() * gridSize),
+                    y: Math.floor(Math.random() * gridSize)
+                };
+                
+                const dx = Math.min(
+                    Math.abs(crook.x - squadCar.x),
+                    Math.abs(crook.x - squadCar.x + gridSize),
+                    Math.abs(crook.x - squadCar.x - gridSize)
+                );
+                
+                const dy = Math.min(
+                    Math.abs(crook.y - squadCar.y),
+                    Math.abs(crook.y - squadCar.y + gridSize),
+                    Math.abs(crook.y - squadCar.y - gridSize)
+                );
+                
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                console.log('Initial positions - Squad car:', squadCar.x, squadCar.y, 'Crook:', crook.x, crook.y, 'Distance:', distance);
+                
+                attempts++;
+                if (distance >= 15 || attempts > 100) break;
+            } while (true);
+
+            // Create the grid
+            const grid = document.getElementById('grid');
+            grid.innerHTML = ''; // Clear existing grid
+            
+            // Create grid cells
+            for (let i = 0; i < gridSize * gridSize; i++) {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                grid.appendChild(cell);
+            }
+
+            // Initialize game state
+            gameOver = false;
+            moveCount = 0;
+            arrowsVisible = false;
+            firstMove = true;
+
+            // Update the display
+            updateGrid();
+
+            // Add keyboard listener
+            document.addEventListener('keydown', handleKeyPress);
+        }
+
+        // Make sure grid exists in HTML
+        window.onload = function() {
+            if (!document.getElementById('grid')) {
+                const gridDiv = document.createElement('div');
+                gridDiv.id = 'grid';
+                document.body.appendChild(gridDiv);
+            }
+            initGame();
+        };
+
+        // Make sure Math.random() is working
+        console.log('Testing random generation:', 
+            Math.floor(Math.random() * gridSize),
+            Math.floor(Math.random() * gridSize),
+            Math.floor(Math.random() * gridSize)
+        );
     </script>
 </body>
 </html>

@@ -76,7 +76,7 @@
                 grid.appendChild(cell);
             }
             squadCar = { x: 0, y: 0 };
-            crook = { x: 49, y: 49 };
+            crook = { x: 25, y: 25 };
             updateGrid();
         }
 
@@ -223,64 +223,80 @@
                 squadCar.direction = dy > 0 ? 1 : 3; // Down or Up
             }
 
-            // Move squad car based on new direction
-            switch(squadCar.direction) {
-                case 0: // Right
-                    squadCar.x = (squadCar.x + 1) % gridSize;
-                    break;
-                case 1: // Down
-                    squadCar.y = (squadCar.y + 1) % gridSize;
-                    break;
-                case 2: // Left
-                    squadCar.x = (squadCar.x - 1 + gridSize) % gridSize;
-                    break;
-                case 3: // Up
-                    squadCar.y = (squadCar.y - 1 + gridSize) % gridSize;
-                    break;
-            }
+            // Move squad car 2 squares in the chosen direction
+            for (let i = 0; i < 2; i++) {
+                switch(squadCar.direction) {
+                    case 0: // Right
+                        squadCar.x = (squadCar.x + 1) % gridSize;
+                        break;
+                    case 1: // Down
+                        squadCar.y = (squadCar.y + 1) % gridSize;
+                        break;
+                    case 2: // Left
+                        squadCar.x = (squadCar.x - 1 + gridSize) % gridSize;
+                        break;
+                    case 3: // Up
+                        squadCar.y = (squadCar.y - 1 + gridSize) % gridSize;
+                        break;
+                }
 
-            // Check for collision
-            if (checkCollision()) {
-                return;
-            }
+                // Check for collision after each step
+                if (checkCollision()) {
+                    return;
+                }
 
+                // Update grid after each step for smooth animation
+                updateGrid();
+            }
+        }
+
+        function resetGame() {
+            // Reset game state
+            gameOver = false;
+            moveCount = 0;
+            arrowsVisible = false;
+
+            // Reset squad car to starting position
+            squadCar.x = 0;
+            squadCar.y = 0;
+            squadCar.direction = 0;
+
+            // Reset crook to center
+            crook.x = Math.floor(gridSize / 2);
+            crook.y = Math.floor(gridSize / 2);
+
+            // Update the display
             updateGrid();
         }
 
         function checkCollision() {
-            // First check same square
-            if (squadCar.x === crook.x && squadCar.y === crook.y) {
-                alert('Caught! Same square!');
-                gameOver = true;
+            // Calculate minimum distance considering grid wrapping
+            const dx = Math.min(
+                Math.abs(crook.x - squadCar.x),
+                Math.abs(crook.x - squadCar.x + gridSize),
+                Math.abs(crook.x - squadCar.x - gridSize)
+            );
+            
+            const dy = Math.min(
+                Math.abs(crook.y - squadCar.y),
+                Math.abs(crook.y - squadCar.y + gridSize),
+                Math.abs(crook.y - squadCar.y - gridSize)
+            );
+            
+            // Check if in same or adjacent cell
+            if (dx <= 1 && dy <= 1) {
+                // Update grid one final time to show the catch
+                updateGrid();
+                
+                // Small delay to show final position
+                setTimeout(() => {
+                    alert('Caught! Click OK to play again.');
+                    resetGame();
+                }, 100);
+                
                 return true;
             }
-
-            // Check each adjacent square individually
-            // Right
-            if ((squadCar.x + 1) % gridSize === crook.x && squadCar.y === crook.y) {
-                alert('Caught! Adjacent right!');
-                gameOver = true;
-                return true;
-            }
-            // Left
-            if ((squadCar.x - 1 + gridSize) % gridSize === crook.x && squadCar.y === crook.y) {
-                alert('Caught! Adjacent left!');
-                gameOver = true;
-                return true;
-            }
-            // Down
-            if (squadCar.x === crook.x && (squadCar.y + 1) % gridSize === crook.y) {
-                alert('Caught! Adjacent below!');
-                gameOver = true;
-                return true;
-            }
-            // Up
-            if (squadCar.x === crook.x && (squadCar.y - 1 + gridSize) % gridSize === crook.y) {
-                alert('Caught! Adjacent above!');
-                gameOver = true;
-                return true;
-            }
-
+            
             return false;
         }
 

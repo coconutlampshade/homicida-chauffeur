@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homicidal Chauffeur Problem Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: white;
+        }
+        #grid {
+            display: grid;
+            grid-template-columns: repeat(50, 20px);
+            grid-template-rows: repeat(50, 20px);
+            margin: 20px;
+            gap: 1px;
+            background-color: #ccc;
+        }
+        .cell {
+            width: 20px;
+            height: 20px;
+            background-color: white;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+        .squad-car {
+            position: relative;
+            width: 20px;
+            height: 20px;
+            background-color: #ff0000;
+        }
+        .crook {
+            background-color: #0000ff;
+        }
+        .arrow-straight {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #ff0000;
+            z-index: 2;
+            clip-path: polygon(0 0, 100% 50%, 0 100%);
+        }
+        .arrow-right {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: #fe9898;
+            z-index: 2;
+            clip-path: polygon(0 0, 100% 50%, 0 100%);
+        }
+    </style>
+</head>
+<body>
+    <h1>Homicidal Chauffeur Problem Simulation</h1>
+    <div id="grid"></div>
+    <div id="moveCounter">Moves: 0</div>
+
+    <script>
+        const gridSize = 50;
+        let squadCar, crook;
+        let gameInterval;
+        let moveCount = 0;
+
+        function initGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < gridSize * gridSize; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                grid.appendChild(cell);
+            }
+            squadCar = { x: 0, y: 0 };
+            crook = { x: 49, y: 49 };
+            updateGrid();
+        }
+
+        function updateGrid() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.classList.remove('squad-car', 'crook');
+                cell.innerHTML = '';
+            });
+            
+            const squadCarIndex = squadCar.y * gridSize + squadCar.x;
+            const crookIndex = crook.y * gridSize + crook.x;
+            
+            // Add squad car
+            const squadCarCell = cells[squadCarIndex];
+            squadCarCell.classList.add('squad-car');
+            
+            // Only create arrows if they don't exist
+            let straightArrow = document.querySelector('.arrow-straight');
+            let rightArrow = document.querySelector('.arrow-right');
+            
+            if (!straightArrow) {
+                straightArrow = document.createElement('div');
+                straightArrow.classList.add('arrow-straight');
+            }
+            if (!rightArrow) {
+                rightArrow = document.createElement('div');
+                rightArrow.classList.add('arrow-right');
+            }
+            
+            // Update arrow positions based on current direction
+            switch(squadCar.direction) {
+                case 0: // Right
+                    straightArrow.style.left = '25px';
+                    straightArrow.style.top = '5px';
+                    straightArrow.style.transform = 'rotate(0deg)';
+                    rightArrow.style.left = '5px';
+                    rightArrow.style.top = '25px';
+                    rightArrow.style.transform = 'rotate(90deg)';
+                    break;
+                case 1: // Down
+                    straightArrow.style.left = '5px';
+                    straightArrow.style.top = '25px';
+                    straightArrow.style.transform = 'rotate(90deg)';
+                    rightArrow.style.left = '-15px';
+                    rightArrow.style.top = '5px';
+                    rightArrow.style.transform = 'rotate(180deg)';
+                    break;
+                case 2: // Left
+                    straightArrow.style.left = '-15px';
+                    straightArrow.style.top = '5px';
+                    straightArrow.style.transform = 'rotate(180deg)';
+                    rightArrow.style.left = '5px';
+                    rightArrow.style.top = '-15px';
+                    rightArrow.style.transform = 'rotate(270deg)';
+                    break;
+                case 3: // Up
+                    straightArrow.style.left = '5px';
+                    straightArrow.style.top = '-15px';
+                    straightArrow.style.transform = 'rotate(270deg)';
+                    rightArrow.style.left = '25px';
+                    rightArrow.style.top = '5px';
+                    rightArrow.style.transform = 'rotate(0deg)';
+                    break;
+            }
+            
+            // Move arrows to new squad car cell
+            squadCarCell.appendChild(straightArrow);
+            squadCarCell.appendChild(rightArrow);
+            
+            // Add crook
+            cells[crookIndex].classList.add('crook');
+        }
+
+        // Add event listener for keyboard controls
+        document.addEventListener('keydown', handleKeyPress);
+
+        function handleKeyPress(event) {
+            // Start game on first key press if not already started
+            if (moveCount === 0) {
+                startSimulation();
+            }
+
+            switch(event.key) {
+                case 'ArrowUp':
+                    crook.y = (crook.y - 1 + gridSize) % gridSize;
+                    break;
+                case 'ArrowDown':
+                    crook.y = (crook.y + 1) % gridSize;
+                    break;
+                case 'ArrowLeft':
+                    crook.x = (crook.x - 1 + gridSize) % gridSize;
+                    break;
+                case 'ArrowRight':
+                    crook.x = (crook.x + 1) % gridSize;
+                    break;
+                default:
+                    return; // Ignore other keys
+            }
+            moveCount++;
+            updateMoveCounter();
+            updateGrid();
+            moveSquadCar();
+            updateGrid();
+            
+            if (squadCar.x === crook.x && squadCar.y === crook.y) {
+                alert(`Game Over! The squad car caught the crook in ${moveCount} moves!`);
+                moveCount = 0;
+                startSimulation();
+            }
+        }
+
+        function startSimulation() {
+            if (gameInterval) {
+                clearInterval(gameInterval);
+            }
+            
+            squadCar = { x: 0, y: 0, direction: 0 };
+            crook = { x: Math.floor(gridSize/2), y: Math.floor(gridSize/2) };
+            moveCount = 0;
+            updateMoveCounter();
+            updateGrid();
+        }
+
+        function updateMoveCounter() {
+            document.getElementById('moveCounter').textContent = `Moves: ${moveCount}`;
+        }
+
+        function moveSquadCar() {
+            let movesLeft = 2;
+            
+            while (movesLeft > 0) {
+                if (squadCar.x === crook.x && squadCar.y === crook.y) {
+                    break;
+                }
+                
+                // Calculate shortest distance considering wrap-around
+                let dx = crook.x - squadCar.x;
+                let dy = crook.y - squadCar.y;
+                
+                // Adjust for wrap-around
+                if (Math.abs(dx) > gridSize/2) {
+                    dx = dx > 0 ? dx - gridSize : dx + gridSize;
+                }
+                if (Math.abs(dy) > gridSize/2) {
+                    dy = dy > 0 ? dy - gridSize : dy + gridSize;
+                }
+                
+                // Determine possible moves based on current direction
+                let possibleMoves = [];
+                switch(squadCar.direction) {
+                    case 0: // Facing right
+                        possibleMoves = ['right', 'down'];  // Can go straight or turn right
+                        break;
+                    case 1: // Facing down
+                        possibleMoves = ['down', 'left'];  // Can go straight or turn right
+                        break;
+                    case 2: // Facing left
+                        possibleMoves = ['left', 'up'];  // Can go straight or turn right
+                        break;
+                    case 3: // Facing up
+                        possibleMoves = ['up', 'right'];  // Can go straight or turn right
+                        break;
+                }
+                
+                // Choose best available move
+                let bestMove = null;
+                let bestDist = Infinity;
+                
+                possibleMoves.forEach(move => {
+                    let newX = squadCar.x;
+                    let newY = squadCar.y;
+                    
+                    switch(move) {
+                        case 'right': newX = (squadCar.x + 1) % gridSize; break;
+                        case 'left': newX = (squadCar.x - 1 + gridSize) % gridSize; break;
+                        case 'down': newY = (squadCar.y + 1) % gridSize; break;
+                        case 'up': newY = (squadCar.y - 1 + gridSize) % gridSize; break;
+                    }
+                    
+                    // Calculate distance considering wrap-around
+                    let newDx = crook.x - newX;
+                    let newDy = crook.y - newY;
+                    
+                    if (Math.abs(newDx) > gridSize/2) {
+                        newDx = newDx > 0 ? newDx - gridSize : newDx + gridSize;
+                    }
+                    if (Math.abs(newDy) > gridSize/2) {
+                        newDy = newDy > 0 ? newDy - gridSize : newDy + gridSize;
+                    }
+                    
+                    let newDist = Math.abs(newDx) + Math.abs(newDy);
+                    if (newDist < bestDist) {
+                        bestDist = newDist;
+                        bestMove = move;
+                    }
+                });
+                
+                // Execute the best move
+                if (bestMove) {
+                    switch(bestMove) {
+                        case 'right':
+                            squadCar.x = (squadCar.x + 1) % gridSize;
+                            squadCar.direction = 0;
+                            break;
+                        case 'left':
+                            squadCar.x = (squadCar.x - 1 + gridSize) % gridSize;
+                            squadCar.direction = 2;
+                            break;
+                        case 'down':
+                            squadCar.y = (squadCar.y + 1) % gridSize;
+                            squadCar.direction = 1;
+                            break;
+                        case 'up':
+                            squadCar.y = (squadCar.y - 1 + gridSize) % gridSize;
+                            squadCar.direction = 3;
+                            break;
+                    }
+                }
+                
+                movesLeft--;
+            }
+
+            // Update squad car position and direction
+            if (canTurnRight && shouldTurnRight()) {
+                squadCar.direction = (squadCar.direction + 1) % 4;
+            }
+            
+            // Move squad car forward
+            const straightArrow = document.querySelector('.arrow-straight');
+            const rightArrow = document.querySelector('.arrow-right');
+
+            switch(squadCar.direction) {
+                case 0: // Right
+                    squadCar.x = (squadCar.x + 1) % gridSize;
+                    straightArrow.style.left = '20px';
+                    straightArrow.style.top = '5px';
+                    straightArrow.style.transform = 'rotate(0deg)';
+                    rightArrow.style.left = '5px';
+                    rightArrow.style.top = '20px';
+                    rightArrow.style.transform = 'rotate(90deg)';
+                    break;
+                case 1: // Down
+                    squadCar.y = (squadCar.y + 1) % gridSize;
+                    straightArrow.style.left = '5px';
+                    straightArrow.style.top = '20px';
+                    straightArrow.style.transform = 'rotate(90deg)';
+                    rightArrow.style.left = '-20px';
+                    rightArrow.style.top = '5px';
+                    rightArrow.style.transform = 'rotate(180deg)';
+                    break;
+                case 2: // Left
+                    squadCar.x = (squadCar.x - 1 + gridSize) % gridSize;
+                    straightArrow.style.left = '-20px';
+                    straightArrow.style.top = '5px';
+                    straightArrow.style.transform = 'rotate(180deg)';
+                    rightArrow.style.left = '5px';
+                    rightArrow.style.top = '-20px';
+                    rightArrow.style.transform = 'rotate(270deg)';
+                    break;
+                case 3: // Up
+                    squadCar.y = (squadCar.y - 1 + gridSize) % gridSize;
+                    straightArrow.style.left = '5px';
+                    straightArrow.style.top = '-20px';
+                    straightArrow.style.transform = 'rotate(270deg)';
+                    rightArrow.style.left = '20px';
+                    rightArrow.style.top = '5px';
+                    rightArrow.style.transform = 'rotate(0deg)';
+                    break;
+            }
+
+            updateGrid();
+        }
+
+        window.onload = initGrid;
+    </script>
+</body>
+</html>

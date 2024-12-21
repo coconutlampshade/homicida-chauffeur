@@ -67,6 +67,9 @@
         let gridSize = 50;
         let arrowsVisible = false;
         let firstMove = true;
+        let moves = 0;
+        let gamesPlayed = 0;
+        let bestScore = Infinity;
 
         function initGrid() {
             const grid = document.getElementById('grid');
@@ -183,11 +186,11 @@
 
             if (moved) {
                 console.log('Crook moved to:', crook.x, crook.y); // Debug logging
+                updateGrid();
                 if (firstMove) {
                     firstMove = false;
                     arrowsVisible = true;
                 }
-                updateGrid();
                 moveSquadCar();
             }
         }
@@ -211,47 +214,45 @@
         function moveSquadCar() {
             if (gameOver) return;
 
-            console.log('Moving squad car from:', squadCar.x, squadCar.y, 'direction:', squadCar.direction);
-
-            // Calculate direction to crook
-            const dx = crook.x - squadCar.x;
-            const dy = crook.y - squadCar.y;
-
-            // Consider all possible moves
+            // Calculate possible moves:
+            // 1. Forward two squares
+            // 2. Turn right and move two squares
             const moves = [
-                // Move forward 2
-                { dx: 2, dy: 0, dir: 0 },  // Right
-                { dx: -2, dy: 0, dir: 2 }, // Left
-                { dx: 0, dy: 2, dir: 1 },  // Down
-                { dx: 0, dy: -2, dir: 3 }, // Up
-                // Move 1, turn, move 1
-                { dx: 1, dy: 1, dir: [0, 1] },  // Right then down
-                { dx: 1, dy: -1, dir: [0, 3] }, // Right then up
-                { dx: -1, dy: 1, dir: [2, 1] }, // Left then down
-                { dx: -1, dy: -1, dir: [2, 3] } // Left then up
+                // Forward two squares
+                {
+                    dx: squadCar.direction === 0 ? 2 : squadCar.direction === 2 ? -2 : 0,
+                    dy: squadCar.direction === 1 ? 2 : squadCar.direction === 3 ? -2 : 0,
+                    newDirection: squadCar.direction
+                },
+                // Turn right and move two squares
+                {
+                    dx: squadCar.direction === 3 ? 2 : squadCar.direction === 1 ? -2 : 0,
+                    dy: squadCar.direction === 0 ? 2 : squadCar.direction === 2 ? -2 : 0,
+                    newDirection: (squadCar.direction + 1) % 4
+                }
             ];
 
             // Calculate best move
             let bestMove = moves[0];
-            let shortestDistance = gridSize * 2;
+            let shortestDistance = Infinity;
 
             moves.forEach(move => {
-                // Calculate new position after move
+                // Calculate new position
                 const newX = (squadCar.x + move.dx + gridSize) % gridSize;
                 const newY = (squadCar.y + move.dy + gridSize) % gridSize;
                 
                 // Calculate distance to crook from this position
-                const newDx = Math.min(
+                const dx = Math.min(
                     Math.abs(crook.x - newX),
                     Math.abs(crook.x - newX + gridSize),
                     Math.abs(crook.x - newX - gridSize)
                 );
-                const newDy = Math.min(
+                const dy = Math.min(
                     Math.abs(crook.y - newY),
                     Math.abs(crook.y - newY + gridSize),
                     Math.abs(crook.y - newY - gridSize)
                 );
-                const distance = Math.sqrt(newDx * newDx + newDy * newDy);
+                const distance = Math.sqrt(dx * dx + dy * dy);
 
                 if (distance < shortestDistance) {
                     shortestDistance = distance;
@@ -259,34 +260,13 @@
                 }
             });
 
-            // Execute best move
-            if (Array.isArray(bestMove.dir)) {
-                // Two-part move
-                for (let i = 0; i < 2; i++) {
-                    squadCar.direction = bestMove.dir[i];
-                    switch(squadCar.direction) {
-                        case 0: squadCar.x = (squadCar.x + 1) % gridSize; break;
-                        case 1: squadCar.y = (squadCar.y + 1) % gridSize; break;
-                        case 2: squadCar.x = (squadCar.x - 1 + gridSize) % gridSize; break;
-                        case 3: squadCar.y = (squadCar.y - 1 + gridSize) % gridSize; break;
-                    }
-                    if (checkCollision()) return;
-                    updateGrid();
-                }
-            } else {
-                // Straight move
-                squadCar.direction = bestMove.dir;
-                for (let i = 0; i < 2; i++) {
-                    switch(squadCar.direction) {
-                        case 0: squadCar.x = (squadCar.x + 1) % gridSize; break;
-                        case 1: squadCar.y = (squadCar.y + 1) % gridSize; break;
-                        case 2: squadCar.x = (squadCar.x - 1 + gridSize) % gridSize; break;
-                        case 3: squadCar.y = (squadCar.y - 1 + gridSize) % gridSize; break;
-                    }
-                    if (checkCollision()) return;
-                    updateGrid();
-                }
-            }
+            // Execute the move
+            squadCar.direction = bestMove.newDirection;
+            squadCar.x = (squadCar.x + bestMove.dx + gridSize) % gridSize;
+            squadCar.y = (squadCar.y + bestMove.dy + gridSize) % gridSize;
+
+            updateGrid();
+            checkCollision();
         }
 
         function resetGame() {
@@ -334,36 +314,34 @@
 
             // Update the display
             updateGrid();
+
+            // Remove any existing event listener to prevent duplicates
+            document.removeEventListener('keydown', handleKeyPress);
+            // Add the event listener
+            document.addEventListener('keydown', handleKeyPress);
         }
 
         function checkCollision() {
-            // Calculate minimum distance considering grid wrapping
-            const dx = Math.min(
-                Math.abs(crook.x - squadCar.x),
-                Math.abs(crook.x - squadCar.x + gridSize),
-                Math.abs(crook.x - squadCar.x - gridSize)
-            );
-            
-            const dy = Math.min(
-                Math.abs(crook.y - squadCar.y),
-                Math.abs(crook.y - squadCar.y + gridSize),
-                Math.abs(crook.y - squadCar.y - gridSize)
-            );
-            
-            // Check if in same or adjacent cell
-            if (dx <= 1 && dy <= 1) {
-                // Update grid one final time to show the catch
-                updateGrid();
-                
-                // Small delay to show final position
-                setTimeout(() => {
-                    alert('Caught! Click OK to play again.');
-                    resetGame();
-                }, 100);
-                
-                return true;
+            // Check same square and all adjacent squares (including diagonals)
+            for (let dx = -1; dx <= 1; dx++) {
+                for (let dy = -1; dy <= 1; dy++) {
+                    const checkX = (squadCar.x + dx + gridSize) % gridSize;
+                    const checkY = (squadCar.y + dy + gridSize) % gridSize;
+                    
+                    if (checkX === crook.x && checkY === crook.y) {
+                        // Update grid one final time to show the catch
+                        updateGrid();
+                        
+                        // Small delay to show final position
+                        setTimeout(() => {
+                            alert('Caught! Click OK to play again.');
+                            resetGame();
+                        }, 100);
+                        
+                        return true;
+                    }
+                }
             }
-            
             return false;
         }
 
@@ -423,7 +401,9 @@
             // Update the display
             updateGrid();
 
-            // Add keyboard listener
+            // Remove any existing event listener to prevent duplicates
+            document.removeEventListener('keydown', handleKeyPress);
+            // Add the event listener
             document.addEventListener('keydown', handleKeyPress);
         }
 
@@ -443,6 +423,143 @@
             Math.floor(Math.random() * gridSize),
             Math.floor(Math.random() * gridSize)
         );
+
+        function updateStats() {
+            // Create or update stats display
+            let stats = document.getElementById('gameStats');
+            if (!stats) {
+                stats = document.createElement('div');
+                stats.id = 'gameStats';
+                document.body.appendChild(stats);
+            }
+            
+            stats.innerHTML = `
+                <div class="stats-container">
+                    <p>Moves: ${moves}</p>
+                    <p>Games Played: ${gamesPlayed}</p>
+                    <p>Best Score: ${bestScore === Infinity ? '-' : bestScore}</p>
+                </div>
+            `;
+        }
+
+        // Add visual indicators for possible squad car moves
+        function showPossibleMoves() {
+            // Calculate both possible moves
+            const moves = [
+                // Forward two squares
+                {
+                    dx: squadCar.direction === 0 ? 2 : squadCar.direction === 2 ? -2 : 0,
+                    dy: squadCar.direction === 1 ? 2 : squadCar.direction === 3 ? -2 : 0
+                },
+                // Turn right and move two squares
+                {
+                    dx: squadCar.direction === 3 ? 2 : squadCar.direction === 1 ? -2 : 0,
+                    dy: squadCar.direction === 0 ? 2 : squadCar.direction === 2 ? -2 : 0
+                }
+            ];
+
+            // Show possible landing squares
+            moves.forEach(move => {
+                const x = (squadCar.x + move.dx + gridSize) % gridSize;
+                const y = (squadCar.y + move.dy + gridSize) % gridSize;
+                const cell = document.querySelector(`.cell[data-x="${x}"][data-y="${y}"]`);
+                if (cell) cell.classList.add('possible-move');
+            });
+        }
+
+        // Add CSS for new features
+        const style = document.createElement('style');
+        style.textContent += `
+            .stats-container {
+                position: fixed;
+                top: 10px;
+                right: 10px;
+                background: rgba(255, 255, 255, 0.9);
+                padding: 15px;
+                border-radius: 8px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                font-family: Arial, sans-serif;
+            }
+
+            .possible-move {
+                background-color: rgba(255, 255, 0, 0.2);
+            }
+
+            .cell {
+                transition: all 0.3s ease;
+            }
+
+            .squad-car {
+                transition: all 0.3s ease;
+                transform-origin: center;
+            }
+
+            .crook {
+                transition: all 0.3s ease;
+            }
+
+            .game-over {
+                background: rgba(0, 0, 0, 0.7);
+                color: white;
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                padding: 20px;
+                border-radius: 10px;
+                text-align: center;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Update existing functions
+        function handleKeyPress(event) {
+            if (gameOver) return;
+
+            let moved = false;
+            switch(event.key) {
+                case 'ArrowRight':
+                    crook.x = (crook.x + 1) % gridSize;
+                    moved = true;
+                    break;
+                case 'ArrowDown':
+                    crook.y = (crook.y + 1) % gridSize;
+                    moved = true;
+                    break;
+                case 'ArrowLeft':
+                    crook.x = (crook.x - 1 + gridSize) % gridSize;
+                    moved = true;
+                    break;
+                case 'ArrowUp':
+                    crook.y = (crook.y - 1 + gridSize) % gridSize;
+                    moved = true;
+                    break;
+            }
+
+            if (moved) {
+                moves++;
+                updateStats();
+                updateGrid();
+                if (firstMove) {
+                    firstMove = false;
+                    arrowsVisible = true;
+                }
+                showPossibleMoves();
+                moveSquadCar();
+            }
+        }
+
+        function resetGame() {
+            gamesPlayed++;
+            if (moves < bestScore && moves > 0) {
+                bestScore = moves;
+            }
+            moves = 0;
+            
+            // Existing reset code...
+            
+            updateStats();
+        }
     </script>
 </body>
 </html>

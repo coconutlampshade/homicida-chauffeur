@@ -81,22 +81,37 @@
         let gameStarted = false;
         let isSquadTurn = true;
 
-        // Add NPC mode toggle
-        let isNPCMode = false;
+        // Add state for both NPC modes
+        let isSquadNPC = false;
+        let isCrookNPC = false;
 
-        // Add toggle button to the status area
+        // Update status area with two NPC toggles
         const statusDiv = document.getElementById('status');
-        const npcToggle = document.createElement('button');
-        npcToggle.textContent = 'Toggle NPC Mode (Off)';
-        npcToggle.style.marginLeft = '10px';
-        npcToggle.onclick = () => {
-            isNPCMode = !isNPCMode;
-            npcToggle.textContent = `Toggle NPC Mode (${isNPCMode ? 'On' : 'Off'})`;
-            if (isNPCMode && isSquadTurn && gameStarted) {
-                makeNPCMove();
+
+        const squadNPCToggle = document.createElement('button');
+        squadNPCToggle.textContent = 'Squad Car NPC: Off';
+        squadNPCToggle.style.marginLeft = '10px';
+        squadNPCToggle.onclick = () => {
+            isSquadNPC = !isSquadNPC;
+            squadNPCToggle.textContent = `Squad Car NPC: ${isSquadNPC ? 'On' : 'Off'}`;
+            if (isSquadNPC && isSquadTurn && gameStarted) {
+                makeSquadNPCMove();
             }
         };
-        statusDiv.appendChild(npcToggle);
+
+        const crookNPCToggle = document.createElement('button');
+        crookNPCToggle.textContent = 'Crook NPC: Off';
+        crookNPCToggle.style.marginLeft = '10px';
+        crookNPCToggle.onclick = () => {
+            isCrookNPC = !isCrookNPC;
+            crookNPCToggle.textContent = `Crook NPC: ${isCrookNPC ? 'On' : 'Off'}`;
+            if (isCrookNPC && !isSquadTurn && gameStarted) {
+                makeCrookNPCMove();
+            }
+        };
+
+        statusDiv.appendChild(squadNPCToggle);
+        statusDiv.appendChild(crookNPCToggle);
 
         function calculateSquadMoves() {
             const moves = [];
@@ -215,28 +230,25 @@
             return dx <= 1 && dy <= 1;
         }
 
-        function makeNPCMove() {
+        // NPC movement functions
+        function makeSquadNPCMove() {
             if (!gameStarted || !isSquadTurn) return;
 
             const moves = calculateSquadMoves();
             let bestMove = null;
             let shortestDistance = Infinity;
 
-            // Evaluate each possible move
             moves.forEach(move => {
-                // Calculate distance to crook for this move
                 const dx = Math.abs(move.x - crook.x);
                 const dy = Math.abs(move.y - crook.y);
                 const distance = Math.sqrt(dx * dx + dy * dy);
 
-                // Update best move if this is closer
                 if (distance < shortestDistance) {
                     shortestDistance = distance;
                     bestMove = move;
                 }
             });
 
-            // Execute the best move if one was found
             if (bestMove) {
                 squadCar.x = bestMove.x;
                 squadCar.y = bestMove.y;
@@ -254,25 +266,60 @@
                 isSquadTurn = false;
                 document.getElementById('status').textContent = "Crook's Turn";
                 createGrid();
+
+                if (isCrookNPC) {
+                    setTimeout(makeCrookNPCMove, 500);
+                }
             }
         }
 
-        // Modify handleCellClick to work with NPC mode
+        function makeCrookNPCMove() {
+            if (!gameStarted || isSquadTurn) return;
+
+            const moves = calculateCrookMoves();
+            let bestMove = null;
+            let longestDistance = -1;
+
+            moves.forEach(move => {
+                const dx = Math.abs(move.x - squadCar.x);
+                const dy = Math.abs(move.y - squadCar.y);
+                const distance = Math.sqrt(dx * dx + dy * dy);
+
+                // Choose move that maximizes distance from squad car
+                if (distance > longestDistance) {
+                    longestDistance = distance;
+                    bestMove = move;
+                }
+            });
+
+            if (bestMove) {
+                crook.x = bestMove.x;
+                crook.y = bestMove.y;
+                isSquadTurn = true;
+                document.getElementById('status').textContent = "Squad Car's Turn";
+                createGrid();
+
+                if (isSquadNPC) {
+                    setTimeout(makeSquadNPCMove, 500);
+                }
+            }
+        }
+
+        // Update handleCellClick to work with both NPCs
         function handleCellClick(x, y) {
             if (!gameStarted) {
                 crook = {x, y};
                 gameStarted = true;
                 document.getElementById('status').textContent = "Squad Car's Turn";
-                if (isNPCMode) {
-                    setTimeout(makeNPCMove, 500); // Small delay for better visualization
+                if (isSquadNPC) {
+                    setTimeout(makeSquadNPCMove, 500);
                 }
             } else {
                 const validMoves = isSquadTurn ? calculateSquadMoves() : calculateCrookMoves();
                 const isValidMove = validMoves.some(move => move.x === x && move.y === y);
                 
                 if (isValidMove) {
-                    if (isSquadTurn && !isNPCMode) {
-                        // Manual squad car move
+                    if (isSquadTurn && !isSquadNPC) {
                         const move = validMoves.find(m => m.x === x && m.y === y);
                         squadCar.x = x;
                         squadCar.y = y;
@@ -285,25 +332,146 @@
                             }, 100);
                             return;
                         }
-                    } else if (!isSquadTurn) {
-                        // Crook move
+                    } else if (!isSquadTurn && !isCrookNPC) {
                         crook.x = x;
                         crook.y = y;
-                        if (isNPCMode) {
-                            setTimeout(makeNPCMove, 500);
-                        }
                     }
                     
                     isSquadTurn = !isSquadTurn;
                     document.getElementById('status').textContent = 
                         isSquadTurn ? "Squad Car's Turn" : "Crook's Turn";
+                    createGrid();
+
+                    // Handle NPC moves after player moves
+                    if ((isSquadTurn && isSquadNPC) || (!isSquadTurn && isCrookNPC)) {
+                        setTimeout(() => {
+                            if (isSquadTurn) {
+                                makeSquadNPCMove();
+                            } else {
+                                makeCrookNPCMove();
+                            }
+                        }, 500);
+                    }
                 }
             }
-            createGrid();
         }
 
         // Initialize the game
         window.onload = createGrid;
+
+        // Update keyboard handler to work with both NPCs
+        document.addEventListener('keydown', (event) => {
+            if (!gameStarted || event.repeat) return;
+            if ((isSquadTurn && isSquadNPC) || (!isSquadTurn && isCrookNPC)) return;
+            
+            if (isSquadTurn && !isSquadNPC) {
+                // Squad car controls
+                const moves = calculateSquadMoves();
+                let selectedMove = null;
+
+                // Map keys to directions
+                switch(event.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        // Find move that goes up
+                        selectedMove = moves.find(move => move.y < squadCar.y);
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        // Find move that goes right
+                        selectedMove = moves.find(move => move.x > squadCar.x);
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        // Find move that goes down
+                        selectedMove = moves.find(move => move.y > squadCar.y);
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        // Find move that goes left
+                        selectedMove = moves.find(move => move.x < squadCar.x);
+                        break;
+                    default:
+                        return;
+                }
+
+                if (selectedMove) {
+                    squadCar.x = selectedMove.x;
+                    squadCar.y = selectedMove.y;
+                    squadCar.direction = selectedMove.newDir;
+                    
+                    if (isCaught()) {
+                        createGrid();
+                        setTimeout(() => {
+                            alert("Crook caught!");
+                            location.reload();
+                        }, 100);
+                        return;
+                    }
+                    
+                    isSquadTurn = false;
+                    document.getElementById('status').textContent = "Crook's Turn";
+                    createGrid();
+                }
+            } else if (!isSquadTurn) {
+                // Crook controls
+                let dx = 0, dy = 0;
+                
+                switch(event.key) {
+                    case 'ArrowUp':
+                    case 'w':
+                    case 'W':
+                        dy = -1;
+                        break;
+                    case 'ArrowRight':
+                    case 'd':
+                    case 'D':
+                        dx = 1;
+                        break;
+                    case 'ArrowDown':
+                    case 's':
+                    case 'S':
+                        dy = 1;
+                        break;
+                    case 'ArrowLeft':
+                    case 'a':
+                    case 'A':
+                        dx = -1;
+                        break;
+                    default:
+                        return;
+                }
+                
+                const newX = crook.x + dx;
+                const newY = crook.y + dy;
+                
+                if (newX >= 0 && newX < gridSize && newY >= 0 && newY < gridSize) {
+                    const validMoves = calculateCrookMoves();
+                    if (validMoves.some(move => move.x === newX && move.y === newY)) {
+                        crook.x = newX;
+                        crook.y = newY;
+                        isSquadTurn = true;
+                        document.getElementById('status').textContent = "Squad Car's Turn";
+                        createGrid();
+                        
+                        if (isSquadNPC) {
+                            setTimeout(makeSquadNPCMove, 500);
+                        }
+                    }
+                }
+            }
+        });
+
+        // Update controls info
+        const controlsInfo = document.createElement('div');
+        controlsInfo.style.fontSize = '12px';
+        controlsInfo.style.marginTop = '5px';
+        controlsInfo.innerHTML = 'Controls: Arrow Keys or WASD<br>Squad Car: Press key in direction you want to move';
+        document.getElementById('status').appendChild(controlsInfo);
     </script>
 </body>
 </html>

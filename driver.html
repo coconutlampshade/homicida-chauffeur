@@ -178,43 +178,44 @@
             });
             
             return moves;
-        }
+        }   
 
         function createGrid() {
             const grid = document.getElementById('grid');
             grid.innerHTML = '';
             
-            const validMoves = isSquadTurn ? calculateSquadMoves() : calculateCrookMoves();
+            const validMoves = gameStarted ? 
+                (isSquadTurn ? calculateSquadMoves() : calculateCrookMoves()) : [];
             
             for (let y = 0; y < gridSize; y++) {
                 for (let x = 0; x < gridSize; x++) {
                     const cell = document.createElement('div');
                     cell.className = 'cell';
                     
-                    // Highlight valid moves
-                    if (gameStarted && validMoves.some(move => move.x === x && move.y === y)) {
-                        cell.classList.add('possible-move');
-                    }
-                    
-                    // Show squad car with properly oriented arrow
+                    // Show squad car with corrected arrow direction (180 degrees rotated)
                     if (squadCar.x === x && squadCar.y === y) {
                         cell.classList.add('squad-car');
                         const arrow = document.createElement('div');
                         arrow.className = 'arrow';
-                        // Map direction to degrees
-                        const rotations = {
-                            0: 90,   // Right: point right
-                            1: 180,  // Down: point down
-                            2: 270,  // Left: point left
-                            3: 0     // Up: point up
-                        };
-                        arrow.style.transform = `rotate(${rotations[squadCar.direction]}deg)`;
+                        // Direction: 0=right, 1=down, 2=left, 3=up
+                        const rotationDegrees = {
+                            0: 90,   // Right
+                            1: 180,  // Down
+                            2: 270,  // Left
+                            3: 0     // Up
+                        }[squadCar.direction];
+                        arrow.style.transform = `rotate(${rotationDegrees}deg)`;
                         cell.appendChild(arrow);
                     }
                     
                     // Show crook
                     if (crook && crook.x === x && crook.y === y) {
                         cell.classList.add('crook');
+                    }
+                    
+                    // Show possible moves
+                    if (gameStarted && validMoves.some(move => move.x === x && move.y === y)) {
+                        cell.classList.add('possible-move');
                     }
                     
                     cell.onclick = () => handleCellClick(x, y);
@@ -305,16 +306,20 @@
             }
         }
 
-        // Update handleCellClick to work with both NPCs
+        // Update handleCellClick function
         function handleCellClick(x, y) {
             if (!gameStarted) {
+                // Initial crook placement
                 crook = {x, y};
                 gameStarted = true;
-                document.getElementById('status').textContent = "Squad Car's Turn";
+                document.getElementById('status').textContent = '';
+                createGrid();
+                
                 if (isSquadNPC) {
                     setTimeout(makeSquadNPCMove, 500);
                 }
             } else {
+                // Handle moves during game
                 const validMoves = isSquadTurn ? calculateSquadMoves() : calculateCrookMoves();
                 const isValidMove = validMoves.some(move => move.x === x && move.y === y);
                 
@@ -324,6 +329,7 @@
                         squadCar.x = x;
                         squadCar.y = y;
                         squadCar.direction = move.newDir;
+                        
                         if (isCaught()) {
                             createGrid();
                             setTimeout(() => {
@@ -338,11 +344,9 @@
                     }
                     
                     isSquadTurn = !isSquadTurn;
-                    document.getElementById('status').textContent = 
-                        isSquadTurn ? "Squad Car's Turn" : "Crook's Turn";
                     createGrid();
 
-                    // Handle NPC moves after player moves
+                    // Handle NPC moves
                     if ((isSquadTurn && isSquadNPC) || (!isSquadTurn && isCrookNPC)) {
                         setTimeout(() => {
                             if (isSquadTurn) {
@@ -359,7 +363,7 @@
         // Initialize the game
         window.onload = createGrid;
 
-        // Update keyboard handler to work with both NPCs
+        // Update keyboard handler
         document.addEventListener('keydown', (event) => {
             if (!gameStarted || event.repeat) return;
             if ((isSquadTurn && isSquadNPC) || (!isSquadTurn && isCrookNPC)) return;
@@ -369,34 +373,27 @@
                 const moves = calculateSquadMoves();
                 let selectedMove = null;
 
-                // Map keys to directions
                 switch(event.key) {
                     case 'ArrowUp':
                     case 'w':
                     case 'W':
-                        // Find move that goes up
                         selectedMove = moves.find(move => move.y < squadCar.y);
                         break;
                     case 'ArrowRight':
                     case 'd':
                     case 'D':
-                        // Find move that goes right
                         selectedMove = moves.find(move => move.x > squadCar.x);
                         break;
                     case 'ArrowDown':
                     case 's':
                     case 'S':
-                        // Find move that goes down
                         selectedMove = moves.find(move => move.y > squadCar.y);
                         break;
                     case 'ArrowLeft':
                     case 'a':
                     case 'A':
-                        // Find move that goes left
                         selectedMove = moves.find(move => move.x < squadCar.x);
                         break;
-                    default:
-                        return;
                 }
 
                 if (selectedMove) {
@@ -414,10 +411,9 @@
                     }
                     
                     isSquadTurn = false;
-                    document.getElementById('status').textContent = "Crook's Turn";
                     createGrid();
                 }
-            } else if (!isSquadTurn) {
+            } else if (!isSquadTurn && !isCrookNPC) {
                 // Crook controls
                 let dx = 0, dy = 0;
                 
@@ -442,8 +438,6 @@
                     case 'A':
                         dx = -1;
                         break;
-                    default:
-                        return;
                 }
                 
                 const newX = crook.x + dx;
@@ -455,12 +449,7 @@
                         crook.x = newX;
                         crook.y = newY;
                         isSquadTurn = true;
-                        document.getElementById('status').textContent = "Squad Car's Turn";
                         createGrid();
-                        
-                        if (isSquadNPC) {
-                            setTimeout(makeSquadNPCMove, 500);
-                        }
                     }
                 }
             }
@@ -472,6 +461,15 @@
         controlsInfo.style.marginTop = '5px';
         controlsInfo.innerHTML = 'Controls: Arrow Keys or WASD<br>Squad Car: Press key in direction you want to move';
         document.getElementById('status').appendChild(controlsInfo);
+
+        // Make sure CSS includes possible-move style
+        const style = document.createElement('style');
+        style.textContent = `
+            .possible-move {
+                background-color: #90EE90 !important;
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>

@@ -19,6 +19,7 @@
             padding: 1px;
             width: 76vmin;
             height: 76vmin;
+            margin-right: 320px;
         }
 
         .cell {
@@ -65,9 +66,35 @@
             padding: 10px;
             border-radius: 5px;
         }
+
+        #description {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            max-width: 300px;
+            font-size: 14px;
+            line-height: 1.4;
+            z-index: 1;
+            opacity: 0.9;
+        }
+
+        #magnet-logo {
+            width: 48px;
+            height: 48px;
+            vertical-align: middle;
+            margin-right: 10px;
+        }
     </style>
 </head>
 <body>
+    <div id="description">
+        <img id="magnet-logo" src="https://substackcdn.com/image/fetch/w_96,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fbucketeer-e05bbc84-baa3-437e-9518-adb32be77984.s3.amazonaws.com%2Fpublic%2Fimages%2Fd1ff073d-4cc7-4524-8b33-1b68ca1511ff_600x600.png" alt="The Magnet logo">
+        <p>This is a simulation of the "Hamstrung Squad Car" game, a classic pursuit-evasion problem in game theory. A squad car (blue) tries to catch a crook (red) on a grid. The squad car moves twice as fast but can only move forward or turn right, while the crook moves slower but can go in any direction.</p>
+        <p><small>Read more at <a href="https://themagnet.substack.com" target="_blank">The Magnet</a></small></p>
+    </div>
     <div id="status">Click anywhere to place the crook</div>
     <div id="grid"></div>
     <script>
@@ -75,7 +102,8 @@
         let squadCar = {
             x: Math.floor(gridSize/2),
             y: Math.floor(gridSize/2),
-            direction: 0  // 0:right, 1:down, 2:left, 3:up
+            direction: 0,
+            rightTurnCount: 0
         };
         let crook = null;
         let gameStarted = false;
@@ -231,46 +259,115 @@
             return dx <= 1 && dy <= 1;
         }
 
-        // NPC movement functions
+        // Add getDistance function
+        function getDistance(x1, y1, x2, y2) {
+            const dx = Math.abs(x1 - x2);
+            const dy = Math.abs(y1 - y2);
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        // Update squad car movement constants
+        const SQUAD_MOVES_PER_TURN = 2;  // Squad car moves 2 cells per turn
+        const SQUAD_CAN_ONLY_TURN_RIGHT = true;
+
+        // Add helper function
+        function normalizeAngle(angle) {
+            while (angle > Math.PI) angle -= 2 * Math.PI;
+            while (angle < -Math.PI) angle += 2 * Math.PI;
+            return angle;
+        }
+
+        // Update makeSquadNPCMove with simpler logic
         function makeSquadNPCMove() {
-            if (!gameStarted || !isSquadTurn) return;
+            if (!isSquadTurn) return;
 
             const moves = calculateSquadMoves();
-            let bestMove = null;
-            let shortestDistance = Infinity;
+            if (moves.length === 0) return;
 
-            moves.forEach(move => {
-                const dx = Math.abs(move.x - crook.x);
-                const dy = Math.abs(move.y - crook.y);
-                const distance = Math.sqrt(dx * dx + dy * dy);
+            let bestMove = moves[0];
+            
+            // Calculate relative position and direction
+            const dx = crook.x - squadCar.x;
+            const dy = crook.y - squadCar.y;
+            
+            function evaluateMove(move) {
+                let score = 0;
+                
+                // Primary goal: Get closer to crook
+                score -= getDistance(move.x, move.y, crook.x, crook.y) * 3;
+                
+                // Check if current direction is already good
+                const currentDirScore = {
+                    0: dx > 0 ? 15 : -5,  // Facing right
+                    1: dy > 0 ? 15 : -5,  // Facing down
+                    2: dx < 0 ? 15 : -5,  // Facing left
+                    3: dy < 0 ? 15 : -5   // Facing up
+                }[squadCar.direction];
 
-                if (distance < shortestDistance) {
-                    shortestDistance = distance;
-                    bestMove = move;
+                // If current direction is good, heavily favor forward movement
+                if (currentDirScore > 0 && move.newDir === squadCar.direction) {
+                    score += 20;  // Big bonus for maintaining good direction
                 }
+                
+                // Only consider turning if we're not well-aligned
+                if (currentDirScore < 0) {
+                    // Bonus for facing the right direction after move
+                    switch(move.newDir) {
+                        case 0: // Facing right
+                            score += dx > 0 ? 10 : -5;
+                            break;
+                        case 1: // Facing down
+                            score += dy > 0 ? 10 : -5;
+                            break;
+                        case 2: // Facing left
+                            score += dx < 0 ? 10 : -5;
+                            break;
+                        case 3: // Facing up
+                            score += dy < 0 ? 10 : -5;
+                            break;
+                    }
+                }
+                
+                // Extra bonus for moves that cut off escape routes
+                if (Math.abs(dx) > Math.abs(dy)) {
+                    // Crook is more horizontal than vertical
+                    if (dx > 0 && move.x > squadCar.x) score += 8;
+                    if (dx < 0 && move.x < squadCar.x) score += 8;
+                } else {
+                    // Crook is more vertical than horizontal
+                    if (dy > 0 && move.y > squadCar.y) score += 8;
+                    if (dy < 0 && move.y < squadCar.y) score += 8;
+                }
+                
+                return score;
+            }
+
+            // Evaluate all moves
+            bestMove = moves.reduce((best, move) => {
+                const moveScore = evaluateMove(move);
+                const bestScore = evaluateMove(best);
+                return moveScore > bestScore ? move : best;
             });
 
-            if (bestMove) {
-                squadCar.x = bestMove.x;
-                squadCar.y = bestMove.y;
-                squadCar.direction = bestMove.newDir;
+            // Make the move
+            squadCar.x = bestMove.x;
+            squadCar.y = bestMove.y;
+            squadCar.direction = bestMove.newDir;
 
-                if (isCaught()) {
-                    createGrid();
-                    setTimeout(() => {
-                        alert("Crook caught!");
-                        location.reload();
-                    }, 100);
-                    return;
-                }
-
-                isSquadTurn = false;
-                document.getElementById('status').textContent = "Crook's Turn";
+            if (isCaught()) {
                 createGrid();
+                setTimeout(() => {
+                    alert("Crook caught!");
+                    location.reload();
+                }, 100);
+                return;
+            }
 
-                if (isCrookNPC) {
-                    setTimeout(makeCrookNPCMove, 500);
-                }
+            isSquadTurn = false;
+            createGrid();
+
+            if (isCrookNPC) {
+                setTimeout(makeCrookNPCMove, 500);
             }
         }
 
@@ -279,16 +376,73 @@
 
             const moves = calculateCrookMoves();
             let bestMove = null;
-            let longestDistance = -1;
+            
+            function evaluateEscapeMove(move) {
+                let score = 0;
+                
+                // Get distance from squad car
+                const distance = getDistance(move.x, move.y, squadCar.x, squadCar.y);
+                score += distance * 3;  // Basic distance score
+                
+                // Consider squad car's direction and predict next moves
+                const squadFacingRight = squadCar.direction === 0;
+                const squadFacingDown = squadCar.direction === 1;
+                const squadFacingLeft = squadCar.direction === 2;
+                const squadFacingUp = squadCar.direction === 3;
+                
+                // Avoid moving into squad car's forward path
+                if (squadFacingRight && move.x > squadCar.x) score -= 15;
+                if (squadFacingLeft && move.x < squadCar.x) score -= 15;
+                if (squadFacingDown && move.y > squadCar.y) score -= 15;
+                if (squadFacingUp && move.y < squadCar.y) score -= 15;
+                
+                // Avoid getting trapped against edges
+                if (move.x <= 1 || move.x >= gridSize - 2) score -= 10;
+                if (move.y <= 1 || move.y >= gridSize - 2) score -= 10;
+                
+                // Prefer moves that maintain escape routes
+                const escapeRoutes = [
+                    {x: move.x + 1, y: move.y},
+                    {x: move.x - 1, y: move.y},
+                    {x: move.x, y: move.y + 1},
+                    {x: move.x, y: move.y - 1}
+                ].filter(route => 
+                    route.x >= 0 && route.x < gridSize && 
+                    route.y >= 0 && route.y < gridSize
+                );
+                
+                score += escapeRoutes.length * 5;
+                
+                // Consider squad car's turning ability
+                const dx = move.x - squadCar.x;
+                const dy = move.y - squadCar.y;
+                
+                // If squad car would need to turn to catch us, that's good
+                if (squadFacingRight && dy !== 0) score += 8;
+                if (squadFacingLeft && dy !== 0) score += 8;
+                if (squadFacingDown && dx !== 0) score += 8;
+                if (squadFacingUp && dx !== 0) score += 8;
+                
+                // Avoid moving in straight lines (makes us predictable)
+                if (move.x === crook.x || move.y === crook.y) {
+                    score -= 5;
+                }
+                
+                // Try to stay in the opposite quadrant from squad car's heading
+                if (squadFacingRight && move.x < squadCar.x) score += 10;
+                if (squadFacingLeft && move.x > squadCar.x) score += 10;
+                if (squadFacingDown && move.y < squadCar.y) score += 10;
+                if (squadFacingUp && move.y > squadCar.y) score += 10;
+                
+                return score;
+            }
 
+            // Evaluate all possible moves
+            let bestScore = -Infinity;
             moves.forEach(move => {
-                const dx = Math.abs(move.x - squadCar.x);
-                const dy = Math.abs(move.y - squadCar.y);
-                const distance = Math.sqrt(dx * dx + dy * dy);
-
-                // Choose move that maximizes distance from squad car
-                if (distance > longestDistance) {
-                    longestDistance = distance;
+                const score = evaluateEscapeMove(move);
+                if (score > bestScore) {
+                    bestScore = score;
                     bestMove = move;
                 }
             });
@@ -297,7 +451,6 @@
                 crook.x = bestMove.x;
                 crook.y = bestMove.y;
                 isSquadTurn = true;
-                document.getElementById('status').textContent = "Squad Car's Turn";
                 createGrid();
 
                 if (isSquadNPC) {
@@ -459,7 +612,7 @@
         const controlsInfo = document.createElement('div');
         controlsInfo.style.fontSize = '12px';
         controlsInfo.style.marginTop = '5px';
-        controlsInfo.innerHTML = 'Controls: Arrow Keys or WASD<br>Squad Car: Press key in direction you want to move';
+        controlsInfo.innerHTML = 'Controls: Arrow Keys or WASD';
         document.getElementById('status').appendChild(controlsInfo);
 
         // Make sure CSS includes possible-move style
@@ -470,6 +623,17 @@
             }
         `;
         document.head.appendChild(style);
+
+        // Reset turn counter when game starts
+        function init() {
+            squadCar = {
+                x: Math.floor(gridSize/2),
+                y: Math.floor(gridSize/2),
+                direction: 0,
+                rightTurnCount: 0
+            };
+            // ... rest of init function
+        }
     </script>
 </body>
 </html>

@@ -318,8 +318,15 @@
 
         function isCaught() {
             if (!crook) return false;
-            const dx = Math.abs(crook.x - squadCar.x);
-            const dy = Math.abs(crook.y - squadCar.y);
+            
+            // Check if squad car and crook are in the same cell or adjacent cells
+            const dx = Math.abs(squadCar.x - crook.x);
+            const dy = Math.abs(squadCar.y - crook.y);
+            
+            // Will return true if:
+            // - Same cell (dx=0, dy=0)
+            // - Directly adjacent (dx=1, dy=0) or (dx=0, dy=1)
+            // - Diagonally adjacent (dx=1, dy=1)
             return dx <= 1 && dy <= 1;
         }
 

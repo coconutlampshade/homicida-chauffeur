@@ -14,7 +14,7 @@
             --secondary-color: #4a90e2;
             --accent-color: #e74c3c;
             --background: #1e3c72;
-            --text-color: #ffffff;
+            --text-color: #000000;
         }
 
         body {
@@ -161,6 +161,37 @@
             margin: 0 auto 20px;
             text-align: center;
             padding: 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #description h1 {
+            margin-top: 0;
+            color: #2c3e50;
+            font-size: 24px;
+        }
+
+        #description p {
+            color: #34495e;
+            line-height: 1.5;
+            margin: 10px 0;
+        }
+
+        .magnet-attribution {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        #controls {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
         }
 
         #magnet-logo {
@@ -176,14 +207,25 @@
         #controls button {
             margin: 0 5px;
             padding: 8px 16px;
-            border: 1px solid #ccc;
+            border: 1px solid #2c3e50;
             border-radius: 4px;
             background: white;
+            color: #2c3e50;
             cursor: pointer;
+            transition: all 0.2s;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         #controls button:hover {
-            background: #f0f0f0;
+            background: #f5f5f5;
+            border-color: #34495e;
+        }
+
+        #controls button:active {
+            transform: translateY(1px);
+            box-shadow: none;
         }
 
         #status {
@@ -199,23 +241,58 @@
         a:hover {
             text-decoration: underline;
         }
+
+        #magnet-logo {
+            width: 24px;
+            height: 24px;
+            margin: 0;
+        }
+
+        .magnet-attribution p {
+            margin: 0;
+        }
+
+        #moveCounter {
+            color: #2c3e50;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+
+        #controls {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+        }
+
+        #controls div {
+            color: #2c3e50;
+        }
+
+        #controls div:last-child {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #2c3e50;
+        }
     </style>
 </head>
 <body>
-    <h1>Hamstrung Squad Car</h1>
+   
     <div id="game-container">
         <div id="description">
-            <img id="magnet-logo" 
-                 src="https://substackcdn.com/image/fetch/w_96,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fbucketeer-e05bbc84-baa3-437e-9518-adb32be77984.s3.amazonaws.com%2Fpublic%2Fimages%2Fd1ff073d-4cc7-4524-8b33-1b68ca1511ff_600x600.png" 
-                 alt="The Magnet logo">
+            <h2>Hamstrung Squad Car</h2>
             <p>This is a simulation of the "Hamstrung Squad Car" game, a classic pursuit-evasion problem in game theory. A squad car (blue) tries to catch a crook (red) on a grid. The squad car moves twice as fast but can only move forward or turn right, while the crook moves slower but can go in any direction.</p>
-            <p><small>Read more at <a href="https://themagnet.substack.com" target="_blank">The Magnet</a></small></p>
             <div id="controls">
                 <p id="status">Click anywhere to place the crook</p>
                 <button id="squadNPCToggle">Squad Car Auto: Off</button>
                 <button id="crookNPCToggle">Crook Auto: Off</button>
                 <div id="moveCounter">Moves: 0</div>
                 <div style="font-size: 12px; margin-top: 5px;">Controls: Arrow Keys or WASD</div>
+            </div>
+            <div class="magnet-attribution">
+                <img id="magnet-logo" 
+                     src="https://substackcdn.com/image/fetch/w_96,c_limit,f_auto,q_auto:good,fl_progressive:steep/https%3A%2F%2Fbucketeer-e05bbc84-baa3-437e-9518-adb32be77984.s3.amazonaws.com%2Fpublic%2Fimages%2Fd1ff073d-4cc7-4524-8b33-1b68ca1511ff_600x600.png" 
+                     alt="The Magnet logo">
+                <p><small>Read more at <a href="https://themagnet.substack.com" target="_blank">The Magnet</a></small></p>
             </div>
         </div>
         <div id="grid"></div>

@@ -62,8 +62,53 @@
         }
 
         #status {
-            font-weight: 500;
+            font-size: 1em;
+            font-weight: normal;
             color: #2c3e50;
+            margin: 15px 0;
+            padding: 10px;
+            text-align: center;
+            transform: none !important;
+            animation: none !important;
+            background: none;
+            border: none;
+            box-shadow: none;
+        }
+
+        #status.initial-instruction {
+            font-size: 1.4em;
+            font-weight: bold;
+            background-color: #ffeb3b;
+            border-radius: 8px;
+            border: 3px solid #ffd700;
+            margin: 20px 0;
+            padding: 15px;
+            animation: pulse 2s infinite;
+            box-shadow: 0 2px 8px rgba(255, 215, 0, 0.3);
+            color: #000;
+            transform: none;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.05);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .game-started #status {
+            animation: none;
+            border: none;
+            background: none;
+            font-size: 1em;
+            box-shadow: none;
+            text-shadow: none;
+            padding: 10px;
             margin: 15px 0;
         }
 
@@ -147,6 +192,29 @@
             background-color: #2ecc71;
             opacity: 0.8;
         }
+
+        /* Add specific styling for controls info */
+        #controls-info {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #666;
+        }
+
+        /* Update the status styling to be more specific */
+        #status:not(.controls-info) {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 20px 0;
+            padding: 15px;
+            background-color: #e3f2fd;
+            border-radius: 8px;
+            border: 3px solid #4a90e2;
+            text-align: center;
+            animation: pulse 2s infinite;
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.2);
+            text-shadow: 1px 1px 0 rgba(255, 255, 255, 0.8);
+        }
     </style>
 </head>
 <body>
@@ -157,7 +225,7 @@
         <p><small>Read more at <a href="https://themagnet.substack.com" target="_blank">The Magnet</a>
         <br>View code at <a href="https://github.com/coconutlampshade/homicidal-chauffeur" target="_blank">GitHub Repository</a></small></p>
         <div id="controls">
-            <p id="status">Click anywhere to place the crook</p>
+            <p id="status">Click anywhere on the grid to place the crook</p>
             <button id="squadNPCToggle">Squad Car Auto: Off</button>
             <button id="crookNPCToggle">Crook Auto: Off</button>
             <div style="font-size: 12px; margin-top: 5px;">Controls: Arrow Keys or WASD</div>

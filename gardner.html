@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(15, 40px);
+            gap: 1px;
+            background: #ccc;
+            padding: 1px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+        .cell {
+            width: 40px;
+            height: 40px;
+            background: white;
+            border: 1px solid #999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            position: relative;
+        }
+        .squad-car {
+            background: blue;
+            color: white;
+            position: relative;
+        }
+        .criminal {
+            background: red;
+            color: white;
+        }
+        .possible-move {
+            background: #90EE90;
+        }
+        .capture-zone {
+            background: #FFB6C1;
+        }
+        .arrow {
+            position: absolute;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 16px solid white;
+            transform-origin: 50% 50%;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px;
+        }
+        button {
+            padding: 10px;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="resetGame()">Reset Game</button>
+        <button onclick="toggleTurn()">Next Turn</button>
+        <div id="status">Squad Car's Turn</div>
+    </div>
+    <div id="grid" class="grid"></div>
+
+    <script>
+        const gridSize = 15;
+        let squadCarPos = {x: 7, y: 7};
+        let squadCarDir = 'N'; // N, E, S, W
+        let criminalPos = null;
+        let isSquadTurn = true;
+        let possibleMoves = [];
+
+        function createGrid() {
+            const grid = document.getElementById('grid');
+            grid.innerHTML = '';
+            
+            for (let y = 0; y < gridSize; y++) {
+                for (let x = 0; x < gridSize; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.onclick = () => handleClick(x, y);
+                    grid.appendChild(cell);
+                }
+            }
+            updateGrid();
+        }
+
+        function updateGrid() {
+            const cells = document.querySelectorAll('.cell');
+            cells.forEach(cell => {
+                cell.className = 'cell';
+            });
+
+            // Show squad car
+            const squadIndex = squadCarPos.y * gridSize + squadCarPos.x;
+            cells[squadIndex].className = 'cell squad-car';
+            
+            // Add direction arrow
+            const arrow = document.createElement('div');
+            arrow.className = 'arrow';
+            let rotation = {
+                'N': 0,
+                'E': 90,
+                'S': 180,
+                'W': 270
+            }[squadCarDir];
+            arrow.style.transform = `rotate(${rotation}deg)`;
+            cells[squadIndex].appendChild(arrow);
+
+            // Show criminal
+            if (criminalPos) {
+                const crimIndex = criminalPos.y * gridSize + criminalPos.x;
+                cells[crimIndex].className = 'cell criminal';
+            }
+
+            // Show possible moves
+            possibleMoves.forEach(move => {
+                const moveIndex = move.y * gridSize + move.x;
+                cells[moveIndex].className = `cell possible-move`;
+            });
+
+            // Show capture zone around squad car
+            showCaptureZone();
+        }
+
+        function showCaptureZone() {
+            const cells = document.querySelectorAll('.cell');
+            for (let dy = -1; dy <= 1; dy++) {
+                for (let dx = -1; dx <= 1; dx++) {
+                    const x = squadCarPos.x + dx;
+                    const y = squadCarPos.y + dy;
+                    if (x >= 0 && x < gridSize && y >= 0 && y < gridSize) {
+                        const index = y * gridSize + x;
+                        if (!cells[index].classList.contains('squad-car') &&
+                            !cells[index].classList.contains('criminal')) {
+                            cells[index].className = 'cell capture-zone';
+                        }
+                    }
+                }
+            }
+        }
+
+        function calculatePossibleMoves() {
+            possibleMoves = [];
+            if (isSquadTurn) {
+                // Squad car moves
+                const moves = {
+                    'N': [{dx: 0, dy: -2}, {dx: 2, dy: 0}],  // Forward or right turn
+                    'E': [{dx: 2, dy: 0}, {dx: 0, dy: 2}],
+                    'S': [{dx: 0, dy: 2}, {dx: -2, dy: 0}],
+                    'W': [{dx: -2, dy: 0}, {dx: 0, dy: -2}]
+                }[squadCarDir];
+
+                moves.forEach(move => {
+                    const newX = squadCarPos.x + move.dx;
+                    const newY = squadCarPos.y + move.dy;
+                    if (newX >= 0 && newX < gridSize && newY >= 0 && newY < gridSize) {
+                        possibleMoves.push({x: newX, y: newY});
+                    }
+                });
+            } else if (criminalPos) {
+                // Criminal moves
+                [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(([dx, dy]) => {
+                    const newX = criminalPos.x + dx;
+                    const newY = criminalPos.y + dy;
+                    if (newX >= 0 && newX < gridSize && newY >= 0 && newY < gridSize) {
+                        possibleMoves.push({x: newX, y: newY});
+                    }
+                });
+            }
+        }
+
+        function handleClick(x, y) {
+            const isValidMove = possibleMoves.some(move => move.x === x && move.y === y);
+            
+            if (!isValidMove) return;
+
+            if (isSquadTurn) {
+                // Update squad car direction
+                if (x > squadCarPos.x) squadCarDir = 'E';
+                else if (x < squadCarPos.x) squadCarDir = 'W';
+                else if (y < squadCarPos.y) squadCarDir = 'N';
+                else if (y > squadCarPos.y) squadCarDir = 'S';
+                
+                squadCarPos = {x, y};
+            } else {
+                criminalPos = {x, y};
+            }
+
+            toggleTurn();
+        }
+
+        function toggleTurn() {
+            isSquadTurn = !isSquadTurn;
+            document.getElementById('status').textContent = 
+                isSquadTurn ? "Squad Car's Turn" : "Criminal's Turn";
+            calculatePossibleMoves();
+            updateGrid();
+            
+            // Check for capture
+            if (criminalPos) {
+                const dx = Math.abs(squadCarPos.x - criminalPos.x);
+                const dy = Math.abs(squadCarPos.y - criminalPos.y);
+                if (dx <= 1 && dy <= 1) {
+                    alert('Capture! Squad car wins!');
+                    resetGame();
+                }
+            }
+        }
+
+        function resetGame() {
+            squadCarPos = {x: 7, y: 7};
+            squadCarDir = 'N';
+            criminalPos = null;
+            isSquadTurn = true;
+            calculatePossibleMoves();
+            document.getElementById('status').textContent = "Squad Car's Turn";
+            updateGrid();
+        }
+
+        // Initialize game
+        createGrid();
+        calculatePossibleMoves();
+    </script>
+</body>
+</html>
